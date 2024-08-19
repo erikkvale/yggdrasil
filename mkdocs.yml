@@ -1,4 +1,8 @@
 site_name: Yggdrasil
 theme:
   name: material
-
+nav:
+  - Home: index.md
+  - Go Documentation:
+      - API Reference: godocs/index.html
+      - Routes: godocs/sample-apps/batch-processing-api/routes/index.html
