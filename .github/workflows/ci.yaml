@@ -49,8 +49,8 @@ jobs:
           sleep 5 # Give godoc server time to start
           wget -r -nH --cut-dirs=1 --no-parent --reject "index.html*" http://localhost:6060/pkg/github.com/erikkvale/yggdrasil/
           mkdir -p docs/godocs
-          mv yggdrasil/* docs/godocs/
-          rm -rf yggdrasil
+          mv github.com/erikkvale/yggdrasil/* docs/godocs/
+          rm -rf github.com/erikkvale
 
 
       - name: Add Godoc to MkDocs
