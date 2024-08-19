@@ -1,106 +1,69 @@
 package yggdrasil
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
-// WorkerPoolTestSuite is a test suite for the WorkerPool.
 type WorkerPoolTestSuite struct {
 	suite.Suite
-	Pool *WorkerPool
+	workerPool *WorkerPool
 }
 
-// SetupSuite runs once before all tests in the suite.
-func (suite *WorkerPoolTestSuite) SetupSuite() {
-	suite.Pool = NewWorkerPool(10, 5)
-	suite.Pool.Start()
+func (suite *WorkerPoolTestSuite) SetupTest() {
+	suite.workerPool = NewWorkerPool(10, 2)
+	suite.workerPool.Start()
 }
 
-// TearDownSuite runs once after all tests in the suite.
-func (suite *WorkerPoolTestSuite) TearDownSuite() {
-	suite.Pool.Shutdown()
+func (suite *WorkerPoolTestSuite) TearDownTest() {
+	suite.workerPool.Shutdown()
 }
 
-// TestNewWorkerPool checks the initialization of the pool.
-func (suite *WorkerPoolTestSuite) TestNewWorkerPool() {
-	assert.Equal(suite.T(), 10, suite.Pool.QueueSize, "Expected QueueSize to be 10")
-	assert.Equal(suite.T(), 5, len(suite.Pool.Workers), "Expected 5 workers")
-	assert.Equal(suite.T(), 10, cap(suite.Pool.JobQueue), "Expected JobQueue capacity to be 10")
-}
-
-// TestWorkerPoolAddJob tests adding and processing a job.
-func (suite *WorkerPoolTestSuite) TestWorkerPoolAddJob() {
-	processed := make(chan bool, 1)
-
+func (suite *WorkerPoolTestSuite) TestAddJob() {
 	job := func() error {
-		processed <- true
+		time.Sleep(1 * time.Second)
 		return nil
 	}
 
-	suite.Pool.AddJob(job)
+	jobID := suite.workerPool.AddJob(job)
+	status := suite.workerPool.GetJobStatus(jobID)
 
-	select {
-	case <-processed:
-		assert.True(suite.T(), true, "Job was processed")
-	case <-suite.Pool.JobQueue:
-		assert.Fail(suite.T(), "Job was not processed")
-	}
+	suite.NotNil(status, "Job status should not be nil")
+	suite.Equal("pending", status.Status, "Job status should be 'pending'")
 }
 
-// TestWorkerPoolJobErrorHandling tests error handling in jobs.
-func (suite *WorkerPoolTestSuite) TestWorkerPoolJobErrorHandling() {
-	jobErrorOccurred := make(chan bool, 1)
-
-	job := func() error {
-		jobErrorOccurred <- true
-		return fmt.Errorf("job failed")
-	}
-
-	suite.Pool.AddJob(job)
-
-	select {
-	case <-jobErrorOccurred:
-		assert.True(suite.T(), true, "Job error occurred as expected")
-	case <-suite.Pool.JobQueue:
-		assert.Fail(suite.T(), "Job did not trigger an error")
-	}
-}
-
-// TestWorkerPoolShutdown tests that the WorkerPool shuts down correctly.
-func (suite *WorkerPoolTestSuite) TestWorkerPoolShutdown() {
-	pool := NewWorkerPool(10, 5)
-	pool.Start()
-
+func (suite *WorkerPoolTestSuite) TestJobExecution() {
 	job := func() error {
 		return nil
 	}
 
-	// Add jobs
-	for i := 0; i < 5; i++ {
-		pool.AddJob(job)
-	}
+	jobID := suite.workerPool.AddJob(job)
+	time.Sleep(2 * time.Second) // Give the worker some time to process the job
 
-	// Give some time for jobs to be processed
-	time.Sleep(100 * time.Millisecond)
+	status := suite.workerPool.GetJobStatus(jobID)
 
-	// Shutdown the pool
-	pool.Shutdown()
-
-	// Check that the channel is closed using select
-	select {
-	case _, ok := <-pool.JobQueue:
-		assert.False(suite.T(), ok, "Expected JobQueue to be closed")
-	default:
-		// If we reach here, the channel was already empty and closed
-	}
+	suite.NotNil(status, "Job status should not be nil")
+	suite.Equal("completed", status.Status, "Job status should be 'completed'")
 }
 
-// TestWorkerPoolTestSuite runs the test suite.
+func (suite *WorkerPoolTestSuite) TestFailedJob() {
+	job := func() error {
+		return errors.New("job failed")
+	}
+
+	jobID := suite.workerPool.AddJob(job)
+	time.Sleep(2 * time.Second) // Give the worker some time to process the job
+
+	status := suite.workerPool.GetJobStatus(jobID)
+
+	suite.NotNil(status, "Job status should not be nil")
+	suite.Equal("failed", status.Status, "Job status should be 'failed'")
+	suite.Equal("job failed", status.Error, "Job error should be 'job failed'")
+}
+
 func TestWorkerPoolTestSuite(t *testing.T) {
 	suite.Run(t, new(WorkerPoolTestSuite))
 }

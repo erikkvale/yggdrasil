@@ -9,6 +9,7 @@ on:
       - main
 permissions:
   contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -28,6 +29,35 @@ jobs:
     - name: Run tests
       run: go test -v ./...
   
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22
+
+      - name: Install Godoc
+        run: go install golang.org/x/tools/cmd/godoc@latest
+
+      - name: Generate Go Documentation
+        run: |
+          godoc -http=:6060 &
+          sleep 5 # Give godoc server time to start
+          wget -r -nH --cut-dirs=1 --no-parent --reject "index.html*" http://localhost:6060/pkg/github.com/yourusername/yggdrasil/
+          mkdir -p docs/godocs
+          mv yggdrasil/* docs/godocs/
+          rm -rf yggdrasil
+
+      - name: Add Godoc to MkDocs
+        run: |
+          echo '- Go Documentation: godocs' >> mkdocs.yml
+
+    needs: test
+
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -48,4 +78,5 @@ jobs:
             mkdocs-material-
       - run: pip install mkdocs-material 
       - run: mkdocs gh-deploy --force
-    needs: test
+
+    needs: generate-docs
