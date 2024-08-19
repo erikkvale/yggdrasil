@@ -47,10 +47,11 @@ jobs:
         run: |
           godoc -http=:6060 &
           sleep 5 # Give godoc server time to start
-          wget -r -nH --cut-dirs=1 --no-parent --reject "index.html*" http://localhost:6060/pkg/github.com/yourusername/yggdrasil/
+          wget -r -nH --cut-dirs=1 --no-parent --reject "index.html*" http://localhost:6060/pkg/github.com/erikkvale/yggdrasil/
           mkdir -p docs/godocs
           mv yggdrasil/* docs/godocs/
           rm -rf yggdrasil
+
 
       - name: Add Godoc to MkDocs
         run: |
